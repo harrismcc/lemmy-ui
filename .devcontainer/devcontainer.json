@@ -1,0 +1,25 @@
+{
+  "name": "Monorepo",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "lemmy-ui",
+  "workspaceFolder": "/workspaces/lemmy-ui",
+  // Port information that we want to access from our host machines
+  "forwardPorts": [8536, 5432, 1234],
+  "portsAttributes": {
+    "8536": {
+      "label": "Lemmy Backend",
+      "onAutoForward": "silent"
+    },
+    "5432": {
+      "label": "Postgres Database"
+    },
+    "1234": {
+      "label": "Lemmy UI"
+    }
+
+  },
+  "otherPortsAttributes": {
+    "onAutoForward": "silent"
+  },
+  "remoteUser": "root"
+}

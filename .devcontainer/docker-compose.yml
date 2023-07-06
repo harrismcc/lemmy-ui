@@ -1,0 +1,87 @@
+version: "3.7"
+
+services:
+  lemmy:
+    image: dessalines/lemmy:latest
+    hostname: lemmy
+    restart: on-failure:5
+    environment:
+      - RUST_LOG="warn"
+    volumes:
+      - ./lemmy/lemmy.hjson:/config/config.hjson:Z
+    network_mode: "host"
+    depends_on:
+      - postgres
+      - pictrs
+    platform: linux/amd64
+
+  lemmy-ui:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    environment:
+      - LEMMY_UI_LEMMY_INTERNAL_HOST=localhost:8536
+      - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost
+      - LEMMY_UI_HTTPS=true
+    volumes:
+      - ..:/workspaces/lemmy-ui:cached
+    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+    network_mode: "host"
+    # Overrides default command so things don't shut down after the process ends.
+    command: /bin/bash -c "sleep infinity"
+    depends_on:
+      - lemmy
+    platform: linux/amd64
+    restart: unless-stopped
+
+  pictrs:
+    image: asonix/pictrs:0.4.0-rc.7
+    # this needs to match the pictrs url in lemmy.hjson
+    hostname: pictrs
+    # we can set options to pictrs like this, here we set max. image size and forced format for conversion
+    # entrypoint: /sbin/tini -- /usr/local/bin/pict-rs -p /mnt -m 4 --image-format webp
+    environment:
+      - PICTRS_OPENTELEMETRY_URL=http://otel:4137
+      - PICTRS__API_KEY=lemmy
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=full
+      - PICTRS__MEDIA__VIDEO_CODEC=vp9
+      - PICTRS__MEDIA__GIF__MAX_WIDTH=256
+      - PICTRS__MEDIA__GIF__MAX_HEIGHT=256
+      - PICTRS__MEDIA__GIF__MAX_AREA=65536
+      - PICTRS__MEDIA__GIF__MAX_FRAME_COUNT=400
+    user: 991:991
+    volumes:
+      - pictrs:/mnt:Z
+    network_mode: "host"
+    restart: unless-stopped
+    platform: linux/amd64
+    deploy:
+      resources:
+        limits:
+          memory: 690m
+
+  postgres:
+    hostname: postgres
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=lemmy
+      - POSTGRES_PASSWORD=lemmy
+      - POSTGRES_DB=lemmy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/customPostgresql.conf:/etc/postgresql.conf
+    network_mode: "host"
+    restart: unless-stopped
+
+  postfix:
+    image: mwader/postfix-relay
+    environment:
+      - POSTFIX_myhostname=localhost
+    network_mode: "host"
+    platform: linux/amd64
+    restart: "always"
+
+volumes:
+  pgdata:
+  pictrs:
